@@ -92,15 +92,6 @@ edited.
 | **2. Feedback RAG** | any stored lesson | The naive version — it cannot refuse an unchecked lesson |
 | **3. Verified feedback** | VERIFIED only, re-ranked by confidence | Should resist a poisoned memory |
 
-### The experiment
-
-A deliberately false lesson is injected: *"revenue declines are always caused
-by refunds."* System 2 has no mechanism to reject it. System 3 should, because
-the data contains a month where revenue fell while refunds stayed flat, and
-one counterexample is enough to refute a universal claim.
-
-The gap between systems 2 and 3 is the result this project exists to produce.
-
 ## Tech stack
 
 - **Python 3.11+**
