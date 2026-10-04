@@ -26,11 +26,20 @@ from app.feedback import memory as fm
 from app.llm import LLMClient
 from app.observability.tracing import save_trace
 
-# Which stored statuses each system is allowed to see.
-STATUS_POLICY: dict[str, tuple[str, ...]] = {
-    "baseline": (),
-    "feedback_rag": ("PENDING", "VERIFIED"),
-    "verified_feedback": ("VERIFIED",),
+# What each system is allowed to see, and whether it may use verification
+# signals when ranking.
+#
+# feedback_rag gets None, meaning EVERY status including REJECTED, and
+# use_verification=False so it ranks on raw similarity alone. That is the
+# point of the condition: it stands for "a team shipped a vector store of
+# corrections and called it learning". If it filtered out REJECTED lessons
+# it would be borrowing the protection that System 3 is supposed to add,
+# both systems would behave the same under a poisoned memory, and the
+# headline comparison would be meaningless.
+RETRIEVAL_POLICY: dict[str, dict] = {
+    "baseline": {"enabled": False},
+    "feedback_rag": {"enabled": True, "statuses": None, "use_verification": False},
+    "verified_feedback": {"enabled": True, "statuses": ("VERIFIED",), "use_verification": True},
 }
 
 
@@ -53,12 +62,13 @@ def answer_question(
         extra_tables: list[str] = []
         retrieved: list[fm.StoredLesson] = []
 
-        statuses = STATUS_POLICY.get(variant, ())
-        if statuses:
+        policy = RETRIEVAL_POLICY.get(variant, {"enabled": False})
+        if policy.get("enabled"):
             retrieved = fm.retrieve_lessons(
                 question,
                 snapshot=snapshot,
-                include_statuses=statuses,
+                include_statuses=policy.get("statuses"),
+                use_verification=policy.get("use_verification", True),
                 llm=llm,
             )
             lesson_texts = [l.prompt_text() for l in retrieved]

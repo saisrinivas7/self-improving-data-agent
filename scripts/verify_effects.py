@@ -121,14 +121,32 @@ def main() -> None:
         jun, jul = months["2026-06"], months["2026-07"]
 
         # ------------------------------------------------- EFFECT 1: March
-        print("\nEFFECT 1 - March 2026 decline (the demo centrepiece)")
-        net_drop = feb["net"] - mar["net"]
-        vol_part = (feb["gross"] - mar["gross"]) * (1 - feb["refund_amount"] / feb["gross"])
-        ref_part = mar["gross"] * (
-            mar["refund_amount"] / mar["gross"] - feb["refund_amount"] / feb["gross"]
+        # Attribution comes from app/metrics.py, which is the SAME function
+        # the feedback verifier uses. If ground truth and the verifier each
+        # had their own arithmetic they could disagree about whether a claim
+        # is true, and the benchmark would be measuring that disagreement.
+        from app.metrics import (  # noqa: PLC0415
+            Metric,
+            attribute_net_change,
+            find_counterexamples,
+            measure_change,
         )
-        vol_share = vol_part / net_drop if net_drop else 0
-        ref_share = ref_part / net_drop if net_drop else 0
+
+        print("\nEFFECT 1 - March 2026 decline (the demo centrepiece)")
+        attr = attribute_net_change("2026-03")
+        if attr is None:
+            bad("could not attribute the March change")
+            attr_vol = attr_ref = 0.0
+        else:
+            attr_vol, attr_ref = attr.volume_share, attr.refund_share_of_change
+            check(
+                "attribution reconciles exactly (parts sum to the net change)",
+                abs(attr.residual) < 1e-6,
+                f"(residual {attr.residual:.2e})",
+            )
+        net_drop = feb["net"] - mar["net"]
+        vol_share = attr_vol
+        ref_share = attr_ref
         order_chg = mar["orders"] / feb["orders"] - 1
         refund_cnt_chg = mar["refund_count"] / feb["refund_count"] - 1
 
@@ -178,6 +196,32 @@ def main() -> None:
               f"(measured {jul_refund_chg * 100:+.1f}%)")
         check("July decline driven by AOV, not volume", jul_aov_chg < -0.08,
               f"(AOV {jul_aov_chg * 100:+.1f}%, orders {jul_order_chg * 100:+.1f}%)")
+
+        # The poisoning experiment can only work if the verifier's OWN
+        # counterexample function finds at least one qualifying month. This
+        # asserts that the data and the verifier's definition agree - if the
+        # generator drifts, or the attribution threshold changes, this fails
+        # here rather than silently producing a null experimental result.
+        ce = find_counterexamples("refunds")
+        print("\n  counterexamples the verifier would find for "
+              "'declines are ALWAYS caused by refunds':")
+        for x in ce:
+            print(
+                f"    {x['month']}: net {x['net_change_pct']:+.1f}%, refunds explain "
+                f"{x['refunds_share_of_decline'] * 100:.0f}%, "
+                f"dominant = {x['dominant_factor']}"
+            )
+        check(
+            "at least one counterexample exists (else the poisoning experiment is impossible)",
+            len(ce) >= 1, f"(found {len(ce)})",
+        )
+        jul_attr = attribute_net_change("2026-07")
+        check(
+            "July is attributed to AOV, not volume or refunds",
+            jul_attr is not None and jul_attr.dominant_factor == "avg_order_value",
+            f"(dominant = {jul_attr.dominant_factor if jul_attr else 'n/a'})",
+        )
+        gt["counterexamples"] = ce
 
         gt["effects"]["july_decline_no_refunds"] = {
             "month": "2026-07", "compared_to": "2026-06",

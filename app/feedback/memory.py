@@ -224,20 +224,19 @@ def retrieve_lessons(
     k: int | None = None,
     snapshot: str = "live",
     similarity_floor: float = DEFAULT_SIMILARITY_FLOOR,
-    include_statuses: tuple[str, ...] = ("PENDING", "VERIFIED"),
+    include_statuses: tuple[str, ...] | None = None,
     tables_in_play: list[str] | None = None,
+    use_verification: bool = True,
     llm: LLMClient | None = None,
 ) -> list[StoredLesson]:
     """Find lessons relevant to this question.
 
     include_statuses is what separates the two feedback systems:
-      - plain feedback RAG passes ('PENDING','VERIFIED'), i.e. it will use
-        anything that was stored
+      - naive feedback RAG passes None, meaning EVERY status including
+        REJECTED, because a system with no verifier cannot know a lesson is
+        bad. It also passes use_verification=False.
       - the verified system passes ('VERIFIED',) only, so rejected and
-        conflicting lessons cannot influence it
-
-    REJECTED and CONFLICTING are never included by default. They stay in the
-    table for auditing and for the Learning Lab to display, not for use.
+        conflicting lessons cannot influence it.
     """
     s = get_settings()
     k = s.feedback_top_k if k is None else k
@@ -266,14 +265,19 @@ def retrieve_lessons(
                        1 - (embedding <=> %s::vector) AS similarity
                 FROM memory.feedback_memory
                 WHERE snapshot = %s
-                  AND status = ANY(%s)
+                  AND (%s::text[] IS NULL OR status = ANY(%s::text[]))
                   AND embedding IS NOT NULL
                   AND embedding_model = %s
                   AND superseded_by IS NULL
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
-                (vec, snapshot, list(include_statuses), s.embedding_model, vec, k * 3),
+                (
+                    vec, snapshot,
+                    list(include_statuses) if include_statuses else None,
+                    list(include_statuses) if include_statuses else None,
+                    s.embedding_model, vec, k * 3,
+                ),
             )
             rows = cur.fetchall()
 
@@ -300,25 +304,41 @@ def retrieve_lessons(
             )
         )
 
-    out = rank_lessons(out, tables_in_play=tables_in_play)
+    out = rank_lessons(
+        out, tables_in_play=tables_in_play, use_verification=use_verification
+    )
     return out[:k]
 
 
 def rank_lessons(
-    lessons: list[StoredLesson], *, tables_in_play: list[str] | None = None
+    lessons: list[StoredLesson],
+    *,
+    tables_in_play: list[str] | None = None,
+    use_verification: bool = True,
 ) -> list[StoredLesson]:
     """Re-rank beyond raw similarity (spec section 14).
 
-    V1 combines similarity, verification status and confidence, plus schema
+    Combines similarity, verification status and confidence, plus schema
     overlap. Pure similarity is not enough: a vaguely-worded unverified
     guess can sit closer in embedding space than a precise verified lesson,
     and injecting the wrong one is exactly how feedback memory degrades an
     agent instead of improving it.
+
+    use_verification=False is what System 2 (naive feedback RAG) passes, and
+    it matters more than it looks. System 2 exists to represent "there is no
+    verifier". If it benefited from status weighting, it would quietly
+    inherit the very protection System 3 is supposed to provide, the two
+    systems would score the same on a poisoned memory, and the experiment
+    would measure nothing.
     """
     status_weight = {"VERIFIED": 1.0, "PENDING": 0.6, "CONFLICTING": 0.3, "REJECTED": 0.0}
     tables = set(tables_in_play or [])
 
     def score(l: StoredLesson) -> float:
+        if not use_verification:
+            # Similarity and recency-free: exactly what a naive vector-store
+            # implementation would do.
+            return l.similarity
         s = 0.55 * l.similarity
         s += 0.25 * status_weight.get(l.status, 0.3)
         s += 0.10 * l.confidence
