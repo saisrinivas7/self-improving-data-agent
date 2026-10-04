@@ -34,7 +34,12 @@ import sqlglot
 from sqlglot import exp
 
 from app.config import get_settings
-from app.database.connection import ro_connection
+
+# NOTE: app.database.connection is imported lazily inside run_sql, not here.
+# Validation is a pure function over a string and must stay importable
+# without a database driver, so the safety tests can run anywhere - including
+# in CI, which has no Postgres. A module-level import of psycopg would couple
+# the validator to the database and break exactly that.
 
 # Statement types that are never acceptable. Checked against the parsed
 # tree, not the raw text.
@@ -182,6 +187,8 @@ def run_sql(sql: str, *, row_limit: int | None = None) -> SQLResult:
     t0 = time.perf_counter()
     try:
         from psycopg.rows import dict_row
+
+        from app.database.connection import ro_connection
 
         with ro_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
