@@ -26,5 +26,15 @@ jobs:
       # they cover SQL validation, feedback parsing and retrieval ranking as
       # pure functions. Tests that need Postgres or a model are marked
       # `integration` and skipped here.
+      # Settings deliberately REQUIRES a database URL rather than defaulting
+      # to one, so a misconfigured deployment fails at startup instead of at
+      # the first query. CI therefore supplies dummy values: nothing in the
+      # offline suite opens a connection, it only needs Settings to build.
       - name: Run offline tests
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DATABASE_URL_RO: postgresql://ci_ro:ci@localhost:5432/ci
+          LLM_PROVIDER: ollama
+          EMBEDDING_DIM: "1024"
+          MAX_SQL_ATTEMPTS: "3"
         run: python -m pytest -q -m "not integration"
