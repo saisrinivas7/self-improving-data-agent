@@ -7,6 +7,11 @@ ever being retrained.**
 The interesting part is not the retrieval. It is what happens when the memory
 is written by a fallible human.
 
+**Status.** The agent, the feedback classifier, the memory and the Learning Lab
+work end to end. Verification, the benchmark and the measured results are being
+built — see [what's left](#whats-left). No results are claimed here that have
+not been produced.
+
 ---
 
 ## The problem
@@ -86,24 +91,25 @@ All three run an identical pipeline. **Only the retrieval filter differs**, so
 any score difference comes from the memory rather than from a prompt someone
 edited.
 
-| | Retrieves | Why it exists |
-|---|---|---|
-| **1. Baseline** | nothing | The control |
-| **2. Feedback RAG** | any stored lesson | The naive version — it cannot refuse an unchecked lesson |
-| **3. Verified feedback** | VERIFIED only, re-ranked by confidence | Should resist a poisoned memory |
+| | Retrieves | Why it exists | Built |
+|---|---|---|---|
+| **1. Baseline** | nothing | The control | yes |
+| **2. Feedback RAG** | any stored lesson | The naive version — it cannot refuse an unchecked lesson | yes |
+| **3. Verified feedback** | VERIFIED only, re-ranked by confidence | Should resist a poisoned memory | in progress |
 
 ## Tech stack
 
-- **Python 3.11+**
+- **Python 3.13**
 - **Postgres 16 + pgvector** — business data and vector memory in one database
 - **Ollama** (local inference) with **Gemini** available behind an env switch
-- **LangGraph** — the agent control flow
 - **sqlglot** — SQL parsed into a syntax tree for validation
 - **pandas / numpy** — a fixed library of analysis functions
-- **FastAPI** + **Pydantic**
+- **Pydantic** — settings and validation
 - **Streamlit** — the Learning Lab
 - **pytest**
 - **Docker Compose** — Postgres and pgAdmin
+
+Planned: **LangGraph** for the agent control flow, **FastAPI** for the HTTP API.
 
 ## Safety
 
@@ -196,3 +202,12 @@ docs/                  memory and verification diagrams
 The model is never retrained. What improves is **what ends up in its prompt**:
 a persistent, verified, human-authored memory that is retrieved and re-ranked
 per question, and that the agent is explicitly allowed to disagree with.
+
+## What's left
+
+- Conflict detection between contradictory lessons
+- LangGraph conversion of the pipeline
+- Benchmark question set, scoring and the three-way comparison
+- The poisoned-feedback experiment
+- FastAPI endpoints
+- Measured results and failure analysis
