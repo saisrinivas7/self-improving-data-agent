@@ -22,7 +22,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.database.connection import ro_connection
+# app.database.connection is imported lazily inside describe_tables. Table
+# selection (pick_tables and the keyword scoring) is pure string work and
+# must stay importable without a database driver, so it can be tested
+# anywhere - including CI, which has no Postgres.
 
 # Words in a question that point at a table. Crude on purpose: a scoring
 # heuristic is inspectable and cheap, where an LLM call to pick tables
@@ -128,6 +131,8 @@ def pick_tables(question: str, max_tables: int = 5) -> list[str]:
 
 def describe_tables(tables: list[str], *, samples_per_column: int = 3) -> list[Table]:
     """Introspect live Postgres for the given tables."""
+    from app.database.connection import ro_connection  # noqa: PLC0415
+
     out: list[Table] = []
     with ro_connection() as conn, conn.cursor() as cur:
         for name in tables:
