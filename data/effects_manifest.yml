@@ -1,0 +1,263 @@
+# ============================================================
+# PLANTED EFFECTS MANIFEST  -  "Lumen & Co."
+#
+# This file is the experiment design. The data generator reads it, and the
+# benchmark's ground truth is MEASURED back out of the seeded database
+# rather than copied from the intended values here (noise shifts them).
+#
+# Why plant effects at all:
+#   "Why did revenue decrease in March?" has no correct answer unless the
+#   data contains a decline with a known cause. Random data would make every
+#   benchmark answer unscoreable, and would give the agent nothing real to
+#   get wrong - so there would be nothing for you to correct in the
+#   Learning Lab either.
+#
+# Everything below is generated from DATA_SEED so it reproduces exactly.
+# ============================================================
+
+# ------------------------------------------------------------------
+# THE BUSINESS
+#
+# Lumen & Co. is a direct-to-consumer online retailer. Twelve months of
+# trading, ~12,000 customers across 8 countries, 600 SKUs in 6 categories.
+# It is not a huge business; the point is analytical variety, not scale.
+#
+# THE STORY  (this is the causal spine the agent has to uncover)
+#
+#   Oct-Dec 2025  Healthy trading. Holiday peak in Nov/Dec, Electronics
+#                 strongest. This is the "normal" the agent compares against.
+#
+#   Jan 2026      Post-holiday slump. Ordinary seasonality, NOT a planted
+#                 anomaly - it is here so the agent must learn to tell
+#                 seasonality apart from a real problem.
+#
+#   Late Jan      Lumen switches its shipping provider for Electronics to a
+#                 cheaper third-party courier.
+#
+#   Feb-Mar 2026  THE CRISIS. The new courier runs late. Support tickets
+#                 about shipping delays more than double. Customers start
+#                 requesting refunds citing late delivery. Word spreads,
+#                 reviews sour, and repeat customers hesitate - so order
+#                 VOLUME falls too. March revenue drops.
+#
+#                 The naive conclusion is "Product A sales declined".
+#                 The real chain is:
+#                     courier change -> late deliveries
+#                                    -> support tickets + refunds
+#                                    -> reputation damage
+#                                    -> fewer orders
+#                                    -> revenue falls
+#
+#   Apr 2026      The courier problem is fixed. But the damage persists:
+#                 customers who received a late-delivery refund in Feb/Mar
+#                 largely stop buying. That is the churn cohort.
+#
+#   Jun 2026      Marketing runs an aggressive win-back campaign, 15-35% off
+#                 on a fifth of the catalogue. Units and revenue rise, gross
+#                 margin falls. "Did the promotion work?" has two opposite
+#                 answers depending on whether you look at revenue or margin.
+#
+#   Jul 2026      Revenue falls AGAIN - but this time because the campaign
+#                 ended and average order value dropped back. Refunds are
+#                 FLAT. This month exists to refute "declines are always
+#                 caused by refunds".
+#
+#   Aug-Sep 2026  Stabilised, modest growth.
+# ------------------------------------------------------------------
+
+period:
+  start: 2025-10-01
+  end: 2026-09-30
+  # Twelve months ending just before today, so there is exactly ONE March
+  # (2026-03) and exactly one July. Both sit mid-series with months either
+  # side, which matters because the churn effect needs months AFTER March.
+
+catalogue:
+  categories: [Electronics, Home & Kitchen, Apparel, Beauty, Sports & Outdoors, Office]
+  countries: [US, UK, Germany, France, Canada, Australia, Netherlands, Sweden]
+  customer_segments: [Budget, Standard, Premium, VIP]
+
+volume:
+  customers: 12000
+  products: 600
+  orders: 90000          # within the spec's 50k-200k target
+  target_refund_rate: 0.045
+  target_ticket_rate: 0.08
+
+# Ordinary seasonality. NOT an anomaly to be explained - it is here so that
+# "revenue fell in January" has a boring correct answer, and the agent can be
+# wrong by treating normal seasonality as a crisis.
+seasonality:
+  2025-11: +0.28         # Black Friday
+  2025-12: +0.34         # Christmas
+  2026-01: -0.22         # post-holiday slump
+
+# ==================================================================
+# EFFECTS
+# ==================================================================
+effects:
+
+  # ------------------------------------------------------------------
+  # EFFECT 1 - the demo centrepiece (spec section 35)
+  #
+  # Designed so BOTH of the spec's demo checks come out correctly:
+  #   Step 3: "refund volume increased substantially"  -> VERIFIED (it did)
+  #   Step 5: "revenue decline was CAUSED by refunds"  -> UNSUPPORTED
+  #
+  # The trick: refunds rise sharply in RELATIVE terms while staying small in
+  # ABSOLUTE terms. The human's observation is true; the causal claim built on
+  # it is not. Without that gap the verifier has nothing to distinguish, and
+  # section 12's "unsupported feedback" case cannot be demonstrated at all.
+  # ------------------------------------------------------------------
+  - id: march_revenue_decline
+    month: 2026-03
+    description: Revenue falls, driven mainly by order volume, with a real but minor refund spike.
+    caused_by: electronics_shipping_failure
+    # These numbers are chosen so the attribution below actually holds.
+    # Working, with February net revenue as the baseline:
+    #   Feb:  gross 100,  refund rate 4.5%  ->  net 95.50
+    #   Mar:  gross  90,  refund rate 7.5%  ->  net 83.25
+    #   net decline = 12.25
+    #     from volume  : 0.955 x 10  = 9.55  -> 78%
+    #     from refunds : 0.90 x 3.0  = 2.70  -> 22%
+    # So refunds are a genuine, measurable contributor at 22%, which makes
+    # "check refunds" a GOOD lesson, while 78% sits with order volume, which
+    # makes "refunds caused the decline" FALSE.
+    changes:
+      order_count: -0.10         # vs February: still the PRIMARY driver
+      avg_order_value: 0.00      # flat, so the story stays clean
+      refund_rate_multiplier: 1.80   # ~4.7% -> ~7.8% of gross
+      refund_count: +0.50        # rate up 67%, volume down 10%
+    expected_attribution:
+      order_volume: 0.78         # ~78% of the revenue drop
+      refunds: 0.22              # ~22% - real, but not the main cause
+      aov: 0.00
+    verification_targets:
+      # "refunds increased substantially"  -> TRUE
+      # "refunds caused the decline"       -> FALSE (only ~22%)
+      refund_share_of_revenue: 0.045
+
+  # ------------------------------------------------------------------
+  # EFFECT 2 - the counterexample that makes the poisoning experiment work
+  #
+  # The poisoned lesson we will inject is:
+  #     "Revenue declines are always caused by refunds."
+  #
+  # A claim with "always" in it can only be REFUTED if the database contains a
+  # revenue decline where refunds did NOT move. With only Effect 1, the data
+  # would actually SUPPORT the poisoned lesson and the wrong-feedback
+  # experiment in spec section 21 would silently fail.
+  # ------------------------------------------------------------------
+  - id: july_decline_no_refunds
+    month: 2026-07
+    description: Revenue falls because the June campaign ended and AOV dropped. Refunds flat.
+    changes:
+      order_count: +0.02         # volume actually slightly UP
+      avg_order_value: -0.14     # the real driver
+      refund_count: +0.01        # flat
+      refund_amount: 0.00
+    expected_attribution:
+      aov: 0.92
+      order_volume: -0.08
+      refunds: 0.00
+
+  # ------------------------------------------------------------------
+  # EFFECT 3 - the root cause behind Effect 1
+  #
+  # Gives the agent something real to discover, and makes a GOOD lesson
+  # ("refund reasons and support ticket categories belong together") genuinely
+  # useful rather than decorative.
+  # ------------------------------------------------------------------
+  - id: electronics_shipping_failure
+    months: [2026-02, 2026-03]
+    description: A courier change in one category drives both tickets and refunds.
+    category: Electronics
+    changes:
+      support_ticket_count: +1.20          # more than doubles
+      ticket_category_mix: {shipping_delay: 0.62}
+      refund_reason_mix: {late_delivery: 0.55}
+
+  # ------------------------------------------------------------------
+  # EFFECT 4 - a campaign that buys revenue with margin
+  # Supports: "Did promotions increase revenue or simply reduce margin?"
+  # ------------------------------------------------------------------
+  - id: june_promo_margin_trap
+    month: 2026-06
+    description: A win-back campaign lifts units and revenue while cutting gross margin.
+    changes:
+      promoted_product_share: 0.22
+      discount_percent: [15, 35]
+      unit_lift_on_promoted: +0.55
+      gross_margin_change: -0.19           # revenue UP, margin DOWN
+
+  # ------------------------------------------------------------------
+  # EFFECT 5 - the churn cohort left behind by the March failure
+  # Supports: "Which customer segments are most likely to churn?"
+  # ------------------------------------------------------------------
+  - id: post_crisis_churn_cohort
+    description: Customers burned by the shipping failure largely stop ordering.
+    cohort: customers with a late_delivery refund in 2026-02 or 2026-03
+    changes:
+      post_march_order_rate: -0.64
+
+# ==================================================================
+# TRAPS
+#
+# These are NOT bugs in the data. They are realistic structural features
+# that a naive text-to-SQL agent gets wrong. They exist so the baseline
+# agent makes genuine, correctable mistakes - the raw material for the
+# whole feedback-learning loop. A spotless dataset would leave nothing
+# to teach.
+# ==================================================================
+traps:
+  - id: order_status_filter
+    detail: >
+      orders.status is one of completed | pending | cancelled | refunded.
+      Cancelled and pending together are ~12% of rows.
+    naive_mistake: SUM(total_amount) with no status filter overstates revenue by ~12%.
+    expected_feedback_type: BUSINESS_LOGIC
+
+  - id: gross_vs_net_revenue
+    detail: orders.total_amount is GROSS. Refunds live in a separate table.
+    naive_mistake: Reporting gross revenue as "revenue", missing the refund effect entirely.
+    expected_feedback_type: MISSING_DATA_SOURCE
+
+  - id: refund_date_lag
+    detail: refunds.refund_date trails orders.order_date by 5-30 days, crossing month boundaries.
+    naive_mistake: >
+      Attributing a refund to the month it was PAID rather than the month of the
+      original order, which smears the March effect into April.
+    expected_feedback_type: WRONG_ASSUMPTION
+
+  - id: promo_price_vs_list_price
+    detail: order_items.unit_price is the price actually paid; products.price is list price.
+    naive_mistake: Computing revenue from products.price, overstating promo months.
+    expected_feedback_type: WRONG_ASSUMPTION
+
+  - id: null_country
+    detail: ~3% of customers have NULL country.
+    naive_mistake: GROUP BY country silently drops those customers from totals.
+    expected_feedback_type: SQL_ERROR
+
+  - id: margin_needs_cost
+    detail: Margin requires products.cost, which is easy to overlook.
+    naive_mistake: Treating high revenue as high profitability.
+    expected_feedback_type: MISSING_ANALYSIS
+
+# ==================================================================
+# ASSERTIONS
+#
+# After seeding, scripts/verify_effects.py measures each of these against the
+# real database and FAILS if an effect did not survive the random noise.
+# Ground truth is then written from the MEASURED values, never the intended
+# ones above.
+# ==================================================================
+assertions:
+  - march_net_revenue_below_february: true
+  - march_refund_count_increase_min: 0.25
+  - march_refund_share_of_revenue_max: 0.08    # keeps "refunds caused it" false
+  - july_net_revenue_below_june: true
+  - july_refund_count_change_max: 0.05         # keeps the counterexample clean
+  - electronics_march_ticket_increase_min: 0.60
+  - cancelled_pending_order_share_min: 0.08    # the status trap must be material
+  - churn_cohort_order_rate_drop_min: 0.40
