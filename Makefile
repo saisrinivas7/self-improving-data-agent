@@ -14,7 +14,7 @@ SHELL    := /bin/bash
 .PHONY: help setup db-up db-down db-reset db-logs psql psql-ro pgadmin \
         verify verify-llm verify-db seed test run ui benchmark clean colima-up \
         llm-up llm-down llm-models llm-status up down \
-        init-db init-memory generate load verify-effects
+        init-db init-memory generate load verify-effects snapshots
 
 help:  ## Show this help
 	@echo "Self-Improving Data Analyst Agent"
@@ -153,8 +153,11 @@ run:  ## Start the FastAPI server
 ui:  ## Start the Streamlit Learning Lab
 	@$(SCRATCH)/streamlit run ui/streamlit_app.py
 
-benchmark:  ## Run the benchmark across all three agent versions
-	@$(PY) scripts/run_benchmark.py
+snapshots: llm-up  ## Build the clean/poisoned/mixed memory snapshots
+	@$(PY) scripts/build_snapshots.py
+
+benchmark: llm-up  ## Run the benchmark (ARGS="--quick" for a smoke test)
+	@$(PY) scripts/run_benchmark.py $(ARGS)
 
 clean:  ## Remove caches and build artefacts
 	@find . -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
