@@ -1,0 +1,73 @@
+# Postgres 16 with pgvector prebuilt, plus pgAdmin as a browser GUI.
+#
+#   docker compose up -d     -> both services
+#   docker compose down      -> stop (data survives in the named volume)
+#   docker compose down -v   -> stop AND delete all data
+#
+# Port 5433 is used on the host instead of 5432 so this never collides with
+# another Postgres someone may already be running.
+
+services:
+  postgres:
+    # pgvector is compiled into this image. That is the whole reason we use
+    # a container: `CREATE EXTENSION vector` just works, on any machine.
+    image: pgvector/pgvector:pg16
+    container_name: sida_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-analyst}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      # Consumed by docker/initdb/01_roles.sh to create the read-only role.
+      AGENT_RO_PASSWORD: ${AGENT_RO_PASSWORD:?AGENT_RO_PASSWORD must be set in .env}
+      # Deterministic collation, so ORDER BY results are identical across
+      # machines. Benchmark comparisons depend on this.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Scripts here run ONCE, on first init of an empty volume, in filename
+      # order. They create the vector extension and the read-only agent role.
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # pgAdmin and our Makefile wait on this before doing anything.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-analyst} -d ${POSTGRES_DB:-ecommerce}"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    command:
+      # Modest tuning for analytical queries on a laptop.
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=32MB"
+      - "-c"
+      - "max_connections=50"
+
+  pgadmin:
+    # Browser-based DB GUI at http://localhost:5050
+    image: dpage/pgadmin4:8.14
+    container_name: sida_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@local.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      # Local-only convenience: skip the login and master-password prompts.
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+      # Pre-registers the Postgres connection so there's nothing to click.
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  pgadmin:
