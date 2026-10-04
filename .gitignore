@@ -1,0 +1,65 @@
+# ---- Secrets: never commit ----
+.env
+.env.local
+*.pem
+*.key
+secrets/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ---- Testing / coverage ----
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+
+# ---- Generated data (regenerate with `make seed`) ----
+data/generated/*
+!data/generated/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+
+# ---- Benchmark outputs: keep committed results, ignore scratch runs ----
+benchmark/results/scratch/
+benchmark/results/*.tmp.json
+
+# ---- Docker volumes (bind mounts, if any) ----
+docker/pgdata/
+docker/pgadmin/
+
+# ---- macOS ----
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ---- Editors ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- Logs ----
+*.log
+logs/

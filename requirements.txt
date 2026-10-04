@@ -1,0 +1,56 @@
+# Exact pins for reproducibility. Verified against PyPI 2026-10-03,
+# installed on Python 3.13 / macOS arm64.
+#   make setup   -> creates .venv and installs this file
+
+# ---- LLM ----
+# google-genai is the current unified Google SDK. NOT google-generativeai,
+# which is the deprecated predecessor (0.8.x, no longer developed).
+google-genai==2.28.0
+
+# ---- Agent orchestration ----
+# LangGraph gives us an explicit state machine: named nodes, typed state and
+# conditional edges. We use it because the agent's control flow (especially
+# the bounded SQL retry loop) should be inspectable, not hidden inside an
+# LLM's tool-calling loop.
+langgraph==1.2.12
+langchain-core==1.6.6
+
+# ---- Database ----
+psycopg[binary]==3.3.6     # Postgres driver, v3. binary = no local libpq build
+pgvector==0.5.0            # registers the vector type with psycopg
+
+# ---- SQL safety ----
+# We parse agent-generated SQL into an AST rather than regex-matching it.
+# A blocklist of keywords is trivially bypassed; a parser is not.
+sqlglot==30.21.0
+
+# ---- Analysis ----
+# NOTE: pandas 3.x. Copy-on-write is the default and several 2.x behaviours
+# changed. Code here is written for 3.x semantics.
+pandas==3.0.6
+numpy==2.5.3
+
+# ---- Config / validation ----
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.4
+
+# ---- Resilience ----
+tenacity==9.1.4            # bounded retry/backoff for LLM API calls
+
+# ---- API ----
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+
+# ---- UI ----
+streamlit==1.65.0
+
+# ---- Synthetic data ----
+faker==40.40.0
+
+# ---- Testing ----
+pytest==9.1.1
+pytest-cov==7.1.0
+
+# ---- CLI output (benchmark tables, traces) ----
+rich==15.0.0
