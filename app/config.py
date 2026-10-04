@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     database_url: str
     database_url_ro: str
 
+    # ---------------- agent engine ----------------
+    # "graph"      the LangGraph state machine in app/agent/graph.py
+    # "sequential" the plain function pipeline in app/agent/baseline.py
+    #
+    # Both share every tool and prompt, so they should produce the same
+    # answers. The switch exists so the graph can be validated against the
+    # pipeline it replaces, rather than being trusted because it compiles.
+    agent_engine: str = "sequential"
+
     # ---------------- agent limits ----------------
     max_sql_attempts: int = 3
     sql_row_limit: int = 5000

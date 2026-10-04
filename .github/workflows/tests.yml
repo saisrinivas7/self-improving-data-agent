@@ -20,7 +20,7 @@ jobs:
       # requirements file would pull streamlit, pyarrow and the Google SDK
       # for no benefit, and make CI several minutes slower.
       - name: Install test dependencies
-        run: pip install sqlglot==30.21.0 pydantic==2.13.5 pydantic-settings==2.15.0 pytest==9.1.1 pandas==3.0.6 numpy==2.5.3 httpx==0.28.1 python-dotenv==1.2.4
+        run: pip install sqlglot==30.21.0 pydantic==2.13.5 pydantic-settings==2.15.0 pytest==9.1.1 pandas==3.0.6 numpy==2.5.3 httpx==0.28.1 python-dotenv==1.2.4 langgraph==1.2.12
 
       # These tests deliberately need no database, no API key and no network:
       # they cover SQL validation, feedback parsing and retrieval ranking as

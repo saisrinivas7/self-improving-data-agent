@@ -83,14 +83,25 @@ def answer_question(
                 for l in retrieved:
                     print(f"    [{l.similarity:.2f} {l.status}] {l.lesson[:80]}")
 
-        state = run_agent(
-            question,
-            llm=llm,
-            lessons=lesson_texts,
-            extra_tables=extra_tables,
-            system_variant=variant,
-            verbose=verbose,
-        )
+        if s.agent_engine == "graph":
+            from app.agent.graph import run_graph  # noqa: PLC0415
+
+            state = run_graph(
+                question,
+                llm=llm,
+                lessons=lesson_texts,
+                extra_tables=extra_tables,
+                system_variant=variant,
+            )
+        else:
+            state = run_agent(
+                question,
+                llm=llm,
+                lessons=lesson_texts,
+                extra_tables=extra_tables,
+                system_variant=variant,
+                verbose=verbose,
+            )
         state.snapshot = snapshot
         state.retrieved_lessons = fm.to_retrieved(retrieved, used=True)
 
