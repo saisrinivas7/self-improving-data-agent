@@ -9,8 +9,8 @@
       "refund_count_change_pct": 35.37,
       "refund_share_pct": 7.65,
       "attribution": {
-        "order_volume": 0.827,
-        "refunds": 0.173
+        "order_volume": 0.825,
+        "refunds": 0.13
       },
       "expected_factors": [
         "order_volume",
@@ -208,5 +208,28 @@
       "net": 1925982.52,
       "refund_pct": 0.53
     }
-  }
+  },
+  "counterexamples": [
+    {
+      "month": "2026-01",
+      "compare_to": "2025-12",
+      "net_change_pct": -45.86,
+      "refunds_share_of_decline": -0.051,
+      "dominant_factor": "order_volume"
+    },
+    {
+      "month": "2026-03",
+      "compare_to": "2026-02",
+      "net_change_pct": -14.52,
+      "refunds_share_of_decline": 0.13,
+      "dominant_factor": "order_volume"
+    },
+    {
+      "month": "2026-07",
+      "compare_to": "2026-06",
+      "net_change_pct": -15.14,
+      "refunds_share_of_decline": -0.014,
+      "dominant_factor": "avg_order_value"
+    }
+  ]
 }
