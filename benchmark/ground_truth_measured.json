@@ -1,0 +1,212 @@
+{
+  "source": "measured from seeded database",
+  "effects": {
+    "march_revenue_decline": {
+      "month": "2026-03",
+      "compared_to": "2026-02",
+      "net_revenue_change_pct": -14.52,
+      "order_volume_change_pct": -11.39,
+      "refund_count_change_pct": 35.37,
+      "refund_share_pct": 7.65,
+      "attribution": {
+        "order_volume": 0.827,
+        "refunds": 0.173
+      },
+      "expected_factors": [
+        "order_volume",
+        "refunds"
+      ],
+      "expected_direction": {
+        "orders": "decrease",
+        "refunds": "increase"
+      },
+      "refunds_are_primary_cause": false
+    },
+    "july_decline_no_refunds": {
+      "month": "2026-07",
+      "compared_to": "2026-06",
+      "net_revenue_change_pct": -15.14,
+      "order_volume_change_pct": 0.9,
+      "aov_change_pct": -15.62,
+      "refund_count_change_pct": 11.79,
+      "expected_factors": [
+        "avg_order_value"
+      ],
+      "expected_direction": {
+        "aov": "decrease",
+        "refunds": "flat"
+      },
+      "refutes": "revenue declines are always caused by refunds"
+    },
+    "electronics_shipping_failure": {
+      "months": [
+        "2026-02",
+        "2026-03"
+      ],
+      "shipping_delay_ticket_increase_pct": 105.5,
+      "dominant_refund_reason": "late_delivery",
+      "dominant_reason_share": 0.318,
+      "ticket_rate_lift_electronics": 2.31,
+      "ticket_rate_lift_other": 0.96,
+      "affected_category": "Electronics",
+      "expected_factors": [
+        "support_tickets",
+        "refund_reason",
+        "category"
+      ]
+    },
+    "june_promo_margin_trap": {
+      "month": "2026-06",
+      "revenue_change_pct": 12.96,
+      "margin_point_change": -4.86,
+      "expected_factors": [
+        "promotions",
+        "margin"
+      ],
+      "note": "revenue rose while margin percentage fell"
+    },
+    "post_crisis_churn_cohort": {
+      "cohort_size": 287,
+      "relative_order_rate_drop_pct": 70.6,
+      "expected_factors": [
+        "refund_reason",
+        "retention"
+      ]
+    }
+  },
+  "traps": {
+    "order_status_filter": {
+      "overstatement_pct": 13.55,
+      "pending_cancelled_share_pct": 11.96
+    },
+    "gross_vs_net_revenue": {
+      "refund_share_of_gross_pct": 3.74
+    },
+    "refund_date_lag": {
+      "march_by_order_month": 532,
+      "march_by_refund_date": 417,
+      "difference_pct": 21.6
+    },
+    "promo_price_vs_list_price": {
+      "june_overstatement_pct": 7.75
+    },
+    "null_country": {
+      "null_customers": 376,
+      "revenue_share_pct": 3.12
+    },
+    "margin_needs_cost": {
+      "top_decile_products": 57,
+      "of_which_low_margin": 4
+    }
+  },
+  "monthly": {
+    "2025-10": {
+      "orders": 6295,
+      "gross": 1829227.9,
+      "aov": 290.58,
+      "refund_count": 264,
+      "refund_amount": 59726.36,
+      "net": 1769501.54,
+      "refund_pct": 3.27
+    },
+    "2025-11": {
+      "orders": 8070,
+      "gross": 2394026.06,
+      "aov": 296.66,
+      "refund_count": 406,
+      "refund_amount": 93871.23,
+      "net": 2300154.83,
+      "refund_pct": 3.92
+    },
+    "2025-12": {
+      "orders": 8473,
+      "gross": 2547951.94,
+      "aov": 300.71,
+      "refund_count": 413,
+      "refund_amount": 103219.85,
+      "net": 2444732.09,
+      "refund_pct": 4.05
+    },
+    "2026-01": {
+      "orders": 4942,
+      "gross": 1369448.15,
+      "aov": 277.1,
+      "refund_count": 217,
+      "refund_amount": 45877.83,
+      "net": 1323570.32,
+      "refund_pct": 3.35
+    },
+    "2026-02": {
+      "orders": 6328,
+      "gross": 1825684.51,
+      "aov": 288.51,
+      "refund_count": 393,
+      "refund_amount": 90103.37,
+      "net": 1735581.14,
+      "refund_pct": 4.94
+    },
+    "2026-03": {
+      "orders": 5607,
+      "gross": 1606350.95,
+      "aov": 286.49,
+      "refund_count": 532,
+      "refund_amount": 122850.49,
+      "net": 1483500.46,
+      "refund_pct": 7.65
+    },
+    "2026-04": {
+      "orders": 5950,
+      "gross": 1702534.73,
+      "aov": 286.14,
+      "refund_count": 317,
+      "refund_amount": 73177.1,
+      "net": 1629357.63,
+      "refund_pct": 4.3
+    },
+    "2026-05": {
+      "orders": 6183,
+      "gross": 1785709.34,
+      "aov": 288.81,
+      "refund_count": 276,
+      "refund_amount": 60974.77,
+      "net": 1724734.57,
+      "refund_pct": 3.41
+    },
+    "2026-06": {
+      "orders": 7022,
+      "gross": 2017182.18,
+      "aov": 287.27,
+      "refund_count": 280,
+      "refund_amount": 64788.18,
+      "net": 1952394.0,
+      "refund_pct": 3.21
+    },
+    "2026-07": {
+      "orders": 7085,
+      "gross": 1717358.07,
+      "aov": 242.39,
+      "refund_count": 313,
+      "refund_amount": 60514.28,
+      "net": 1656843.79,
+      "refund_pct": 3.52
+    },
+    "2026-08": {
+      "orders": 6587,
+      "gross": 1893301.07,
+      "aov": 287.43,
+      "refund_count": 267,
+      "refund_amount": 59663.83,
+      "net": 1833637.24,
+      "refund_pct": 3.15
+    },
+    "2026-09": {
+      "orders": 6692,
+      "gross": 1936267.05,
+      "aov": 289.34,
+      "refund_count": 43,
+      "refund_amount": 10284.53,
+      "net": 1925982.52,
+      "refund_pct": 0.53
+    }
+  }
+}
