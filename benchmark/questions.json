@@ -1,0 +1,362 @@
+{
+  "_about": {
+    "purpose": "The benchmark question set (spec section 18).",
+    "design_notes": [
+      "SPLIT. Questions are tagged train or test. Feedback may only be collected on TRAIN questions; scores are only reported on TEST questions. Without this split the benchmark measures memorisation: a lesson written while looking at question X will obviously help question X, and that tells us nothing about whether feedback generalises.",
+      "PAIRING. Each test question has a `pairs_with` train question covering the same underlying issue in different words. That is the actual thing being measured - does a lesson learned on one phrasing fire on another?",
+      "SCORING. `expected_factors` and `expected_direction` are checked programmatically against the answer text and the SQL, not by asking a model whether the answer seems good. `required_tables` checks the SQL touched the data it needed. `forbidden_patterns` catches the planted traps, e.g. summing total_amount with no status filter.",
+      "GROUND TRUTH. Numeric expectations are NOT stored here. They live in benchmark/ground_truth_measured.json, which is regenerated from the database by scripts/verify_effects.py. Hardcoding numbers here would let the two drift apart.",
+      "TRAPS. `traps` lists which planted traps a question exposes, so failure analysis can report which traps the agent falls into and whether feedback fixes them."
+    ]
+  },
+
+  "questions": [
+
+    {
+      "id": "rev_monthly_trend",
+      "split": "train",
+      "question": "What was total revenue each month?",
+      "category": "revenue",
+      "difficulty": "easy",
+      "required_tables": ["orders"],
+      "expected_factors": ["monthly_revenue"],
+      "traps": ["order_status_filter", "gross_vs_net_revenue"],
+      "forbidden_patterns": ["sum_total_amount_without_status_filter"],
+      "notes": "The simplest question in the set, and it still has two traps: unfiltered status inflates revenue ~13.6%, and gross is not net."
+    },
+    {
+      "id": "rev_monthly_net",
+      "split": "test",
+      "pairs_with": "rev_monthly_trend",
+      "question": "How much net revenue did the business make in each month of 2026?",
+      "category": "revenue",
+      "difficulty": "easy",
+      "required_tables": ["orders", "refunds"],
+      "expected_factors": ["monthly_revenue", "refunds"],
+      "traps": ["order_status_filter", "gross_vs_net_revenue"],
+      "forbidden_patterns": ["sum_total_amount_without_status_filter"]
+    },
+
+    {
+      "id": "march_why",
+      "split": "train",
+      "question": "Why did revenue decrease in March 2026?",
+      "category": "diagnosis",
+      "difficulty": "hard",
+      "required_tables": ["orders"],
+      "expected_factors": ["order_volume", "refunds"],
+      "expected_direction": {"order_count": "decrease", "refund_count": "increase"},
+      "ground_truth_key": "march_revenue_decline",
+      "traps": ["gross_vs_net_revenue", "order_status_filter", "refund_date_lag"],
+      "notes": "The demo centrepiece. Order volume explains ~83%, refunds ~13%. An answer blaming refunds alone is wrong; so is one that never mentions them."
+    },
+    {
+      "id": "march_drivers",
+      "split": "test",
+      "pairs_with": "march_why",
+      "question": "What were the main drivers of the March 2026 revenue decline?",
+      "category": "diagnosis",
+      "difficulty": "hard",
+      "required_tables": ["orders"],
+      "expected_factors": ["order_volume", "refunds"],
+      "expected_direction": {"order_count": "decrease", "refund_count": "increase"},
+      "ground_truth_key": "march_revenue_decline",
+      "traps": ["gross_vs_net_revenue", "refund_date_lag"]
+    },
+    {
+      "id": "march_volume_or_value",
+      "split": "test",
+      "pairs_with": "march_why",
+      "question": "Did the March 2026 revenue decline come from fewer orders or lower average order value?",
+      "category": "diagnosis",
+      "difficulty": "medium",
+      "required_tables": ["orders"],
+      "expected_factors": ["order_volume"],
+      "expected_direction": {"order_count": "decrease", "avg_order_value": "flat"},
+      "ground_truth_key": "march_revenue_decline",
+      "notes": "Answer is fewer orders. AOV was flat, so an answer blaming AOV is wrong."
+    },
+
+    {
+      "id": "july_why",
+      "split": "test",
+      "question": "Why did revenue fall in July 2026?",
+      "category": "diagnosis",
+      "difficulty": "hard",
+      "required_tables": ["orders"],
+      "expected_factors": ["avg_order_value"],
+      "expected_direction": {"avg_order_value": "decrease", "order_count": "flat"},
+      "ground_truth_key": "july_decline_no_refunds",
+      "traps": ["gross_vs_net_revenue"],
+      "notes": "The poison detector. Refunds were flat and orders rose slightly; the cause is a ~15% AOV drop. An agent carrying the lesson 'declines are always refunds' should get this WRONG, which is how wrong-feedback adoption is measured."
+    },
+    {
+      "id": "july_refunds_role",
+      "split": "test",
+      "question": "Did refunds contribute to the July 2026 revenue decline?",
+      "category": "diagnosis",
+      "difficulty": "medium",
+      "required_tables": ["orders", "refunds"],
+      "expected_factors": ["refunds"],
+      "expected_direction": {"refund_count": "flat"},
+      "ground_truth_key": "july_decline_no_refunds",
+      "notes": "Correct answer is no, or negligibly. A poisoned agent should answer yes."
+    },
+
+    {
+      "id": "jan_why",
+      "split": "test",
+      "question": "Why was revenue so low in January 2026?",
+      "category": "diagnosis",
+      "difficulty": "medium",
+      "required_tables": ["orders"],
+      "expected_factors": ["order_volume", "seasonality"],
+      "expected_direction": {"order_count": "decrease", "refund_count": "flat"},
+      "notes": "Ordinary post-holiday seasonality, not a crisis. Tests whether the agent distinguishes a normal dip from a problem."
+    },
+
+    {
+      "id": "refund_rate_by_category",
+      "split": "train",
+      "question": "Which product categories have the highest refund rates?",
+      "category": "refunds",
+      "difficulty": "medium",
+      "required_tables": ["refunds", "orders", "order_items", "products"],
+      "expected_factors": ["refund_rate", "category"],
+      "expected_top_value": "Electronics",
+      "traps": ["refund_date_lag"]
+    },
+    {
+      "id": "refund_worst_category",
+      "split": "test",
+      "pairs_with": "refund_rate_by_category",
+      "question": "Which category of products gets returned most often relative to its sales?",
+      "category": "refunds",
+      "difficulty": "medium",
+      "required_tables": ["refunds", "orders", "order_items", "products"],
+      "expected_factors": ["refund_rate", "category"],
+      "expected_top_value": "Electronics"
+    },
+    {
+      "id": "refund_pct_monthly",
+      "split": "test",
+      "question": "What percentage of revenue was refunded in each month from October 2025 to July 2026?",
+      "category": "refunds",
+      "difficulty": "medium",
+      "required_tables": ["orders", "refunds"],
+      "expected_factors": ["refund_share"],
+      "traps": ["refund_date_lag", "order_status_filter"],
+      "notes": "Range stops at July deliberately: August and September refunds are truncated by the end of the data window, so those months are not answerable."
+    },
+    {
+      "id": "refund_reasons",
+      "split": "test",
+      "question": "What are the most common reasons customers request refunds, and did that change in early 2026?",
+      "category": "refunds",
+      "difficulty": "medium",
+      "required_tables": ["refunds", "orders"],
+      "expected_factors": ["refund_reason"],
+      "expected_top_value": "late_delivery",
+      "notes": "late_delivery dominates in Feb/Mar. This is the root cause of the March story."
+    },
+
+    {
+      "id": "top_customers_spend",
+      "split": "train",
+      "question": "Who are the top 5 customers?",
+      "category": "customers",
+      "difficulty": "easy",
+      "required_tables": ["customers", "orders"],
+      "expected_factors": ["customer_spend"],
+      "traps": ["order_status_filter"],
+      "notes": "Deliberately ambiguous. A naive agent orders by customer_id. This is the question that produced the project's clearest learning example."
+    },
+    {
+      "id": "top_customers_ltv",
+      "split": "test",
+      "pairs_with": "top_customers_spend",
+      "question": "Which customers have the highest lifetime value?",
+      "category": "customers",
+      "difficulty": "easy",
+      "required_tables": ["customers", "orders"],
+      "expected_factors": ["customer_spend"],
+      "traps": ["order_status_filter", "gross_vs_net_revenue"]
+    },
+    {
+      "id": "churn_segments",
+      "split": "test",
+      "question": "Which customers stopped ordering after March 2026, and what did they have in common?",
+      "category": "retention",
+      "difficulty": "hard",
+      "required_tables": ["customers", "orders", "refunds"],
+      "expected_factors": ["churn", "refund_reason"],
+      "ground_truth_key": "post_crisis_churn_cohort",
+      "notes": "The cohort is customers who got a late_delivery refund in Feb/Mar; they order ~71% less afterwards."
+    },
+    {
+      "id": "revenue_by_country",
+      "split": "test",
+      "question": "How much revenue came from each country?",
+      "category": "customers",
+      "difficulty": "easy",
+      "required_tables": ["customers", "orders"],
+      "expected_factors": ["country"],
+      "traps": ["null_country", "order_status_filter"],
+      "notes": "3.1% of revenue belongs to customers with NULL country and is silently dropped by a plain GROUP BY."
+    },
+    {
+      "id": "segment_value",
+      "split": "test",
+      "question": "Which customer segment generates the most revenue per customer?",
+      "category": "customers",
+      "difficulty": "medium",
+      "required_tables": ["customers", "orders"],
+      "expected_factors": ["customer_segment"],
+      "expected_top_value": "VIP"
+    },
+
+    {
+      "id": "margin_vs_revenue",
+      "split": "train",
+      "question": "Which products have high sales but poor margins?",
+      "category": "margin",
+      "difficulty": "hard",
+      "required_tables": ["products", "order_items", "orders"],
+      "expected_factors": ["margin", "revenue"],
+      "traps": ["margin_needs_cost", "promo_price_vs_list_price"]
+    },
+    {
+      "id": "least_profitable",
+      "split": "test",
+      "pairs_with": "margin_vs_revenue",
+      "question": "Which of our best-selling products actually make us the least profit?",
+      "category": "margin",
+      "difficulty": "hard",
+      "required_tables": ["products", "order_items", "orders"],
+      "expected_factors": ["margin", "revenue"],
+      "traps": ["margin_needs_cost", "promo_price_vs_list_price"]
+    },
+    {
+      "id": "margin_by_category",
+      "split": "test",
+      "question": "What is the gross margin percentage for each product category?",
+      "category": "margin",
+      "difficulty": "medium",
+      "required_tables": ["products", "order_items", "orders"],
+      "expected_factors": ["margin", "category"],
+      "traps": ["margin_needs_cost", "promo_price_vs_list_price"]
+    },
+
+    {
+      "id": "promo_effect",
+      "split": "train",
+      "question": "Did the June 2026 promotions increase revenue or just reduce margin?",
+      "category": "promotions",
+      "difficulty": "hard",
+      "required_tables": ["promotions", "order_items", "orders", "products"],
+      "expected_factors": ["promotions", "margin", "revenue"],
+      "ground_truth_key": "june_promo_margin_trap",
+      "traps": ["promo_price_vs_list_price", "margin_needs_cost"],
+      "notes": "Both are true: revenue rose ~13% while margin fell ~4.9 points. An answer picking only one side is incomplete."
+    },
+    {
+      "id": "promo_worth_it",
+      "split": "test",
+      "pairs_with": "promo_effect",
+      "question": "Were the discount campaigns profitable, or did they just move volume at a lower margin?",
+      "category": "promotions",
+      "difficulty": "hard",
+      "required_tables": ["promotions", "order_items", "orders", "products"],
+      "expected_factors": ["promotions", "margin", "revenue"],
+      "ground_truth_key": "june_promo_margin_trap",
+      "traps": ["promo_price_vs_list_price", "margin_needs_cost"]
+    },
+    {
+      "id": "discount_declining_sales",
+      "split": "test",
+      "question": "Are there products whose sales are falling even though they are being discounted more?",
+      "category": "promotions",
+      "difficulty": "hard",
+      "required_tables": ["promotions", "order_items", "orders", "products"],
+      "expected_factors": ["promotions", "product_trend"]
+    },
+
+    {
+      "id": "tickets_by_category",
+      "split": "train",
+      "question": "Which categories have unusually high support ticket volume?",
+      "category": "support",
+      "difficulty": "medium",
+      "required_tables": ["support_tickets", "orders", "order_items", "products"],
+      "expected_factors": ["support_tickets", "category"],
+      "expected_top_value": "Electronics",
+      "ground_truth_key": "electronics_shipping_failure"
+    },
+    {
+      "id": "tickets_spike_when",
+      "split": "test",
+      "pairs_with": "tickets_by_category",
+      "question": "When did customer complaints spike, and what were they about?",
+      "category": "support",
+      "difficulty": "medium",
+      "required_tables": ["support_tickets"],
+      "expected_factors": ["support_tickets", "ticket_category"],
+      "expected_top_value": "shipping_delay",
+      "ground_truth_key": "electronics_shipping_failure",
+      "notes": "Feb/Mar 2026, shipping_delay, concentrated in Electronics."
+    },
+    {
+      "id": "tickets_to_refunds",
+      "split": "test",
+      "question": "Is there a relationship between support tickets and refunds?",
+      "category": "support",
+      "difficulty": "hard",
+      "required_tables": ["support_tickets", "refunds", "orders"],
+      "expected_factors": ["support_tickets", "refunds"],
+      "notes": "Both spike in Feb/Mar from the same cause. Tests whether the agent says 'associated with' rather than overclaiming causation."
+    },
+
+    {
+      "id": "aov_trend",
+      "split": "test",
+      "question": "How did average order value change over the year?",
+      "category": "trends",
+      "difficulty": "easy",
+      "required_tables": ["orders"],
+      "expected_factors": ["avg_order_value"],
+      "expected_direction": {"avg_order_value": "decrease"},
+      "notes": "Should surface the July drop."
+    },
+    {
+      "id": "cancelled_orders",
+      "split": "test",
+      "question": "What proportion of orders are cancelled or still pending, and does that affect our revenue reporting?",
+      "category": "revenue",
+      "difficulty": "medium",
+      "required_tables": ["orders"],
+      "expected_factors": ["order_status"],
+      "traps": ["order_status_filter"],
+      "notes": "11.9% of orders. Directly tests whether the agent understands the status trap."
+    },
+    {
+      "id": "best_month",
+      "split": "test",
+      "question": "Which month had the best performance and which had the worst?",
+      "category": "trends",
+      "difficulty": "easy",
+      "required_tables": ["orders"],
+      "expected_factors": ["monthly_revenue"],
+      "traps": ["order_status_filter", "gross_vs_net_revenue"]
+    },
+    {
+      "id": "anomaly_scan",
+      "split": "test",
+      "question": "Are there any unusual months in the data that need explaining?",
+      "category": "anomalies",
+      "difficulty": "hard",
+      "required_tables": ["orders"],
+      "expected_factors": ["monthly_revenue", "anomaly"],
+      "notes": "Open-ended. Should surface January, March and July."
+    }
+  ]
+}
