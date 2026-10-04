@@ -7,10 +7,10 @@ ever being retrained.**
 The interesting part is not the retrieval. It is what happens when the memory
 is written by a fallible human.
 
-**Status.** The agent, the feedback classifier, the memory and the Learning Lab
-work end to end. Verification, the benchmark and the measured results are being
-built — see [what's left](#whats-left). No results are claimed here that have
-not been produced.
+**Status.** The agent, feedback classifier, verification, conflict detection,
+memory, Learning Lab, HTTP API and benchmark harness are all built. The
+benchmark has not yet been *run*, so no results are reported — see
+[what's left](#whats-left).
 
 ---
 
@@ -95,7 +95,13 @@ edited.
 |---|---|---|---|
 | **1. Baseline** | nothing | The control | yes |
 | **2. Feedback RAG** | any stored lesson | The naive version — it cannot refuse an unchecked lesson | yes |
-| **3. Verified feedback** | VERIFIED only, re-ranked by confidence | Should resist a poisoned memory | in progress |
+| **3. Verified feedback** | VERIFIED only, re-ranked by confidence | Should resist a poisoned memory | yes |
+
+System 2 deliberately gets **no** verification signal at all: it retrieves
+every status including REJECTED and ranks on raw similarity. If it filtered
+rejected lessons out it would inherit the protection System 3 is meant to
+provide, both systems would behave identically under a poisoned memory, and
+the comparison would measure nothing.
 
 ## Tech stack
 
@@ -104,12 +110,11 @@ edited.
 - **Ollama** (local inference) with **Gemini** available behind an env switch
 - **sqlglot** — SQL parsed into a syntax tree for validation
 - **pandas / numpy** — a fixed library of analysis functions
-- **Pydantic** — settings and validation
+- **LangGraph** — the agent control flow as an explicit state machine
+- **FastAPI** + **Pydantic** — the HTTP API, settings and validation
 - **Streamlit** — the Learning Lab
-- **pytest**
+- **pytest** — 77 offline tests, run in CI
 - **Docker Compose** — Postgres and pgAdmin
-
-Planned: **LangGraph** for the agent control flow, **FastAPI** for the HTTP API.
 
 ## Safety
 
@@ -167,6 +172,17 @@ make ui                  # the Learning Lab at localhost:8501
 
 `make help` lists everything.
 
+To run the experiment:
+
+```bash
+make snapshots           # build the clean / poisoned / mixed memories
+make benchmark ARGS="--quick"   # smoke test, 3 questions per condition
+make benchmark           # the real run; takes a few hours locally
+```
+
+Results land in `benchmark/results/` as raw runs, a summary and a markdown
+table.
+
 ## Using the Learning Lab
 
 1. Ask *"Why did revenue decrease in March 2026?"* The answer will be weak.
@@ -205,9 +221,8 @@ per question, and that the agent is explicitly allowed to disagree with.
 
 ## What's left
 
-- Conflict detection between contradictory lessons
-- LangGraph conversion of the pipeline
-- Benchmark question set, scoring and the three-way comparison
-- The poisoned-feedback experiment
-- FastAPI endpoints
-- Measured results and failure analysis
+- Running the benchmark and reporting the measured results
+- Failure analysis from those runs
+- Validating the LangGraph engine against the sequential one, then making it
+  the default (`AGENT_ENGINE`)
+- A hosted data and trace explorer
