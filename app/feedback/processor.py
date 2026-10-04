@@ -148,14 +148,38 @@ Produce:
 - schema_context: database tables the lesson is about, lower case, from:
   customers, products, orders, order_items, refunds, support_tickets,
   promotions.
-- claims: break the feedback into checkable statements. For each:
-    text: the statement itself
-    kind: "empirical" if data could confirm or refute it (e.g. "refunds
-          rose 30%"); "causal" if it asserts one thing caused another;
-          "procedural" if it is advice about how to analyse (e.g. "always
-          check refunds") and so cannot be true or false
-    is_universal: true if it claims something always or never holds
-  Return an empty list only if the feedback contains no statement at all."""
+- claims: break the feedback into separate statements. For each:
+    text: the statement, rewritten to stand alone. Include the month or
+          period if the feedback refers to one, so the statement can be
+          checked without the surrounding context.
+    kind: exactly one of
+          "empirical"  - it says something about what the DATA SHOWS: that
+                         a quantity rose, fell, was high or low, or hit a
+                         particular value. Choose this even when the
+                         observation is wrapped inside advice. In "check
+                         refunds, they jumped in March", "refunds jumped in
+                         March" is an empirical claim.
+          "causal"     - it asserts that one thing CAUSED a change in
+                         another.
+          "procedural" - it only tells the analyst what to DO or LOOK AT,
+                         and makes no assertion about what the data shows.
+                         "Also check refunds" with no claim about refunds
+                         is procedural.
+    is_universal: true if it claims something holds always, never, or in
+                  every case.
+
+  IMPORTANT: a single sentence often contains two claims. "You should check
+  refunds because refund volume jumped in March" contains a procedural claim
+  (check refunds) AND an empirical one (refund volume jumped in March).
+  Extract both. Any factual observation must be captured as empirical, or it
+  will never be checked against the data.
+
+  Return an empty list only if the feedback contains no statement at all.
+
+Record what the analyst SAID, even if you think they are mistaken. A separate
+step checks each claim against the data, so do not soften, correct or
+reinterpret a claim here - doing so would hide an error instead of catching
+it."""
 
 
 @dataclass
